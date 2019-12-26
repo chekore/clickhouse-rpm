@@ -33,7 +33,7 @@ function os_unsupported()
 ##
 function os_yum_based()
 {
-	[ "$OS" == "rhel" ] || [ "$OS" == "centos" ] || [ "$OS" == "fedora" ]
+	[ "$OS" == "rhel" ] || [ "$OS" == "centos" ] || [ "$OS" == "fedora" ] || [ "$OS" == "ol" ]
 }
 
 ##
@@ -42,6 +42,14 @@ function os_yum_based()
 function os_rhel()
 {
 	[ "$OS" == "rhel" ] || [ "$OS" == "redhatenterpriseserver" ]
+}
+
+##
+## is OS Oracle Linux?
+##
+function os_ol()
+{
+	[ "$OS" == "ol" ] 
 }
 
 ##
@@ -184,5 +192,19 @@ function os_detect()
 	fi
 
 	echo "OS detected: $OS $DISTR_MAJOR $DISTR_MINOR"
+}
+
+##
+##
+##
+function ensure_os_rpm_based()
+{
+	os_detect
+	if ! os_rpm_based; then
+		echo "We need RPM-based OS in order to build RPM packages."
+		exit 1
+	else
+		echo "RPM-based OS detected, continue"
+	fi
 }
 

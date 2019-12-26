@@ -16,6 +16,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+##
+##
+##
 function publish_packagecloud_distro_version_id()
 {
 	# EL6  - 27
@@ -31,29 +34,29 @@ function publish_packagecloud_distro_version_id()
 
 
 	if os_centos; then
-		if [ $DISTR_MAJOR == 6 ]; then
+		if [ "$DISTR_MAJOR" == "6" ]; then
 			return 27
-		elif [ $DISTR_MAJOR == 7 ]; then
+		elif [ "$DISTR_MAJOR" == "7" ]; then
 			return 140
 		else
 			echo "Unknown centos distro"
 			exit 1
 		fi
 	elif os_fedora; then
-		if [ $DISTR_MAJOR == 25 ]; then
+		if [ "$DISTR_MAJOR" == "25" ]; then
 			return 179
-		elif [ $DISTR_MAJOR == 26 ]; then
+		elif [ "$DISTR_MAJOR" == "26" ]; then
 			return 184
 		else
 			echo "Unknown fedora distro"
 			exit 1
 		fi
 	elif os_ubuntu; then
-		if [ $DISTR_MAJOR == 14 ] && [ "${DISTR_MINOR}" == "04" ]; then
+		if [ "$DISTR_MAJOR" == "14" ] && [ "${DISTR_MINOR}" == "04" ]; then
 			return 20
-		elif [ $DISTR_MAJOR == 16 ] && [ "${DISTR_MINOR}" == "04" ]; then
+		elif [ "$DISTR_MAJOR" == "16" ] && [ "${DISTR_MINOR}" == "04" ]; then
 			return 165
-		elif [ $DISTR_MAJOR == 18 ] && [ "${DISTR_MINOR}" == "04" ]; then
+		elif [ "$DISTR_MAJOR" == "18" ] && [ "${DISTR_MINOR}" == "04" ]; then
 			return 190
 		else
 			echo "Unknown ubuntu distro"
@@ -66,6 +69,9 @@ function publish_packagecloud_distro_version_id()
 	exit 1
 }
 
+##
+##
+##
 function publish_packagecloud_file()
 {
 	# Packagecloud user id. Ex.: 123ab45678c9012d3e4567890abcdef1234567890abcdef1
@@ -91,23 +97,27 @@ function publish_packagecloud_file()
 	fi
 }
 
+##
+##
+##
 function publish_packagecloud_files_list()
 {
 	# Packagecloud user id. Ex.: 123ab45678c9012d3e4567890abcdef1234567890abcdef1
 	PACKAGECLOUD_ID=$1
 
 	# Path inside user's repo on packagecloud. Ex.: altinity/clickhouse
-	PACKAGECLOUD_PATH="altinity/clickhouse"
+	PACKAGECLOUD_PATH=$2
 
 	# Packagecloud distro version id. See packagecloud_distro_version_id() function. Ex.: 27
 	publish_packagecloud_distro_version_id
 	DISTRO_VERSION_ID=$?
 
+	set +x
 	echo "Publishing as $PACKAGECLOUD_ID to '$PACKAGECLOUD_PATH' for distro $DISTRO_VERSION_ID"
 
 	if [ -n "$2" ]; then
 		# Have args specified. Treat it as a list of files to publish
-		for FILE in ${@:2}; do
+		for FILE in ${@:3}; do
 			publish_packagecloud_file $PACKAGECLOUD_ID $PACKAGECLOUD_PATH $DISTRO_VERSION_ID $FILE
 		done
 	else
@@ -115,46 +125,56 @@ function publish_packagecloud_files_list()
 	fi
 }
 
+##
+##
+##
 function publish_packagecloud()
 {
 	# Packagecloud user id. Ex.: 123ab45678c9012d3e4567890abcdef1234567890abcdef1
 	PACKAGECLOUD_ID=$1
 
 	# Path inside user's repo on packagecloud. Ex.: altinity/clickhouse
-	PACKAGECLOUD_PATH="altinity/clickhouse"
+	PACKAGECLOUD_PATH=$2
 
 	# Packagecloud distro version id. See packagecloud_distro_version_id() function. Ex.: 27
 	publish_packagecloud_distro_version_id
 	DISTRO_VERSION_ID=$?
 
-	if [ -n "$2" ]; then
+	if [ -n "$3" ]; then
 		# Have args specified. Treat it as a list of files to publish
-		publish_packagecloud_files_list $PACKAGECLOUD_ID ${@:2}
+		publish_packagecloud_files_list $PACKAGECLOUD_ID $PACKAGECLOUD_PATH ${@:3}
 	else
 		# Do not have any files specified. Publish RPMs from RPMS path
-		publish_packagecloud_files_list $PACKAGECLOUD_ID $(ls "$RPMBUILD_DIR"/RPMS/x86_64/clickhouse*.rpm)
+		publish_packagecloud_files_list $PACKAGECLOUD_ID $PACKAGECLOUD_PATH $(ls "$RPMS_DIR"/clickhouse*.rpm)
 	fi
 }
 
+##
+##
+##
 function publish_packagecloud_delete()
 {
 	# Packagecloud user id. Ex.: 123ab45678c9012d3e4567890abcdef1234567890abcdef1
 	PACKAGECLOUD_ID=$1
 
 	if [ -n "$2" ]; then
-		# Have args specified. Treat it as a list of files to publish
-		for FILE in ${@:2}; do
+		# Have args specified. Treat it as a list of files to delete
+		for GUI_FILE_URL in ${@:2}; do
 
-			# make https://123456eae45643234234234234234234534aehaeh234ahdh:@packagecloud.io/api/v1/repos/altinity/clickhouse/PATH/TO/FILE
-			# which is the URL used for deletetion,
-			# out of
-			# https://packagecloud.io/altinity/clickhouse/packages/PATH/TO/FILE 
+			# url api endpoint provided by packagecloud to delete file is of the form:
+			# https://<PACKAGECLOUD_ID>:@packagecloud.io/api/v1/repos/altinity/clickhouse/el/[6,7]/file.rpm
+			# while url exposed for downloading files is of the form:
+			# https://packagecloud.io/altinity/clickhouse/packages/el/[6,7]/file.rpm
+			# so we need to make
+			# https://<PACKAGECLOUD_ID>:@packagecloud.io/api/v1/repos/altinity/clickhouse/el/7/file.rpm
+			# which is the URL used for deletetion, out of
+			# https://packagecloud.io/altinity/clickhouse/packages/el/7/file.rpm
 			# which is URL presented by packagecloud in their GUI
 			# (don't ask, why are those URIs different, just replace what is needed)
-			URL="${FILE/packagecloud.io/$PACKAGECLOUD_ID:@packagecloud.io/api/v1/repos}"
+			URL="${GUI_FILE_URL/packagecloud.io/$PACKAGECLOUD_ID:@packagecloud.io/api/v1/repos}"
 			URL="${URL/packages\//}"
 			echo "Deleting"
-			echo "file: $FILE"
+			echo "file: $GUI_FILE_URL"
 			echo "URL : $URL"
 			echo -n "Delete result"
 			if curl --show-error --silent --output /dev/null -X DELETE "$URL"; then
@@ -164,7 +184,7 @@ function publish_packagecloud_delete()
 			fi
 		done
 	else
-		echo "Please specify URL to FILE to delete"
+		echo "Please specify URL to FILE  delete"
 	fi
 
 }
